@@ -11,19 +11,19 @@ export async function POST(request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const raw = await request.text();
+    const body = raw ? JSON.parse(raw) : {};
     const testId = String(body.testId || "").trim();
-    const violationType = String(body.violationType || "").trim();
 
-    if (!testId || !violationType) {
-      return Response.json({ error: "testId and violationType are required" }, { status: 400 });
+    if (!testId) {
+      return Response.json({ error: "testId is required" }, { status: 400 });
     }
 
     const result = await registerViolation({
       userId,
       testId,
-      violationType,
-      metadata: body.metadata,
+      violationType: "PAGE_CLOSE_ATTEMPT",
+      metadata: { source: "sendBeacon" },
     });
 
     publishSecureExamEvent({
@@ -40,16 +40,9 @@ export async function POST(request) {
       },
     });
 
-    return Response.json({
-      success: true,
-      violationCount: result.session.violationCount,
-      maxViolations: result.maxViolations,
-      locked: result.session.locked,
-      autoSubmitted: result.session.autoSubmitted,
-      report: result.report,
-    });
+    return Response.json({ success: true });
   } catch (error) {
-    console.error("secure_exam_violation_error", error);
-    return Response.json({ error: "Failed to register violation" }, { status: 500 });
+    console.error("secure_exam_beacon_error", error);
+    return Response.json({ error: "Failed to process beacon violation" }, { status: 500 });
   }
 }

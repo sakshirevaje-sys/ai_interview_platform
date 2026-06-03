@@ -13,6 +13,7 @@ export async function GET(request, { params }) {
     const status = await getAssessmentStatus({ userId, testId: params.testId });
     return Response.json(status);
   } catch (error) {
+    console.error("secure_exam_status_error", error);
     return Response.json({ error: "Failed to fetch assessment status" }, { status: 500 });
   }
 }

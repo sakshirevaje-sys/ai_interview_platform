@@ -10,15 +10,30 @@ function riskColor(score) {
 
 export default function SecureExamDashboard() {
   const [data, setData] = useState({ totalViolations: 0, userWise: [], testWise: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
 
     const load = async () => {
-      const response = await fetch("/api/secure-exam/dashboard");
-      if (!response.ok || !active) return;
-      const payload = await response.json();
-      if (active) setData(payload);
+      try {
+        const response = await fetch("/api/secure-exam/dashboard");
+        if (!response.ok || !active) {
+          if (active) setError("Unable to load dashboard data.");
+          return;
+        }
+
+        const payload = await response.json();
+        if (active) {
+          setData(payload);
+          setError("");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
     };
 
     load();
@@ -32,6 +47,8 @@ export default function SecureExamDashboard() {
   return (
     <main style={{ maxWidth: 1100, margin: "24px auto", padding: 20 }}>
       <h1>Secure Exam Admin Dashboard</h1>
+      {loading ? <p>Loading dashboard…</p> : null}
+      {error ? <p style={{ color: "#b91c1c" }}>{error}</p> : null}
       <div style={{ background: "#111827", color: "white", padding: 16, borderRadius: 10, marginBottom: 20 }}>
         Total Violations: <strong>{data.totalViolations}</strong>
       </div>

@@ -4,16 +4,17 @@
 
 Added secure exam mode modules and where they live:
 
-- Frontend monitor: `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/components/secure-exam-monitor.jsx`
-- Assessment integration: `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/components/exam-session-shell.jsx`
-- Admin dashboard UI: `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/components/admin/secure-exam-dashboard.jsx`
+- Frontend monitor: `components/secure-exam-monitor.jsx`
+- Assessment integration: `components/exam-session-shell.jsx`
+- Admin dashboard UI: `components/admin/secure-exam-dashboard.jsx`
 - API routes:
-  - `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/app/api/secure-exam/violations/route.js`
-  - `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/app/api/secure-exam/dashboard/route.js`
-  - `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/app/api/secure-exam/assessment/[testId]/status/route.js`
-- Prisma schema: `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/prisma/schema.prisma`
-- Real-time WebSocket hub: `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/lib/secure-exam-ws.js`
-- Standalone Node/Express server (optional): `/tmp/workspace/sakshirevaje-sys/ai_interview_platform/server/secure-exam-server.js`
+  - `app/api/secure-exam/violations/route.js`
+  - `app/api/secure-exam/violations/beacon/route.js`
+  - `app/api/secure-exam/dashboard/route.js`
+  - `app/api/secure-exam/assessment/[testId]/status/route.js`
+- Prisma schema: `prisma/schema.prisma`
+- Real-time WebSocket hub: `lib/secure-exam-ws.js`
+- Standalone Node/Express server (optional): `server/secure-exam-server.js`
 
 ### Run
 

@@ -64,7 +64,8 @@ export default function SecureExamMonitor({ userId, testId, onAutoSubmit, onLock
         try {
           await document.documentElement.requestFullscreen();
         } catch (error) {
-          await logViolation("FULLSCREEN_EXIT");
+          setBannerMessage("Fullscreen permission is required for secure exam mode.");
+          showPopupWarning("Please allow fullscreen to continue in secure mode.");
         }
       }
     };
@@ -73,7 +74,7 @@ export default function SecureExamMonitor({ userId, testId, onAutoSubmit, onLock
 
     const onVisibilityChange = () => {
       if (document.hidden) {
-        logViolation("TAB_SWITCH");
+        logViolation(document.fullscreenElement ? "WINDOW_MINIMIZED" : "TAB_SWITCH");
       }
     };
     const onBlur = () => logViolation("WINDOW_FOCUS_LOST");
@@ -82,55 +83,79 @@ export default function SecureExamMonitor({ userId, testId, onAutoSubmit, onLock
         logViolation("FULLSCREEN_EXIT");
       }
     };
-    const onPageHide = () => logViolation("PAGE_CLOSE_ATTEMPT");
     const onBeforeUnload = (event) => {
       event.preventDefault();
       event.returnValue = "";
-      logViolation("PAGE_CLOSE_ATTEMPT");
+
+      const payload = JSON.stringify({ testId, violationType: "PAGE_CLOSE_ATTEMPT" });
+      navigator.sendBeacon("/api/secure-exam/violations/beacon", payload);
       return "";
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("blur", onBlur);
     document.addEventListener("fullscreenchange", onFullscreenChange);
-    window.addEventListener("pagehide", onPageHide);
     window.addEventListener("beforeunload", onBeforeUnload);
 
-    const interval = setInterval(() => {
-      if (document.visibilityState === "hidden") {
-        logViolation("WINDOW_MINIMIZED");
-      }
-    }, 4000);
-
     return () => {
-      clearInterval(interval);
       clearTimeout(warningTimerRef.current);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("fullscreenchange", onFullscreenChange);
-      window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
-  }, [logViolation]);
+  }, [logViolation, testId]);
 
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${protocol}://${window.location.host}/ws/secure-exam?testId=${encodeURIComponent(testId)}`);
+    let ws;
+    let reconnectTimer;
+    let cancelled = false;
+    let attempts = 0;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "VIOLATION_RECORDED" && data.payload?.userId === userId && data.payload?.testId === testId) {
-          setViolationCount(data.payload.violationCount);
-          setMaxViolations(data.payload.maxViolations);
-          setBannerMessage(
-            `${data.payload.violationType.replace(/_/g, " ")} detected (${data.payload.violationCount}/${data.payload.maxViolations})`
-          );
+    const connect = () => {
+      if (cancelled) return;
+
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${protocol}://${window.location.host}/ws/secure-exam?testId=${encodeURIComponent(testId)}`);
+
+      ws.onopen = () => {
+        attempts = 0;
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "VIOLATION_RECORDED" && data.payload?.userId === userId && data.payload?.testId === testId) {
+            setViolationCount(data.payload.violationCount);
+            setMaxViolations(data.payload.maxViolations);
+            setBannerMessage(
+              `${data.payload.violationType.replace(/_/g, " ")} detected (${data.payload.violationCount}/${data.payload.maxViolations})`
+            );
+          }
+        } catch (error) {
+          console.error("secure_exam_ws_parse_error", error);
         }
-      } catch (error) {}
+      };
+
+      ws.onerror = (error) => {
+        console.error("secure_exam_ws_error", error);
+      };
+
+      ws.onclose = () => {
+        if (cancelled) return;
+        attempts += 1;
+        const delay = Math.min(10000, 500 * 2 ** attempts);
+        reconnectTimer = setTimeout(connect, delay);
+      };
     };
 
-    return () => ws.close();
+    connect();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(reconnectTimer);
+      ws?.close();
+    };
   }, [testId, userId]);
 
   const remaining = useMemo(() => Math.max(0, maxViolations - violationCount), [maxViolations, violationCount]);
