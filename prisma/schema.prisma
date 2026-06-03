@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SecureExamSession {
+  id            String   @id @default(cuid())
+  userId        String
+  testId        String
+  violationCount Int     @default(0)
+  locked        Boolean  @default(false)
+  autoSubmitted Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  violations    SecureExamViolation[]
+  report        CheatingReport?
+
+  @@unique([userId, testId])
+  @@index([testId])
+  @@index([userId])
+}
+
+model SecureExamViolation {
+  id            String   @id @default(cuid())
+  sessionId     String
+  userId        String
+  testId        String
+  violationType String
+  timestamp     DateTime @default(now())
+  metadata      Json?
+  session       SecureExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, testId])
+  @@index([timestamp])
+}
+
+model CheatingReport {
+  id           String   @id @default(cuid())
+  sessionId    String   @unique
+  userId       String
+  testId       String
+  totalViolations Int
+  riskScore    Int
+  summary      String
+  generatedAt  DateTime @default(now())
+  session      SecureExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, testId])
+}
